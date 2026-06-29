@@ -1,0 +1,8 @@
+tasks:
+  - id: log-001
+    title: 登录日志新增已删除用户标记
+    status: active
+    priority: [1
+    verification:
+      - pnpm.cmd test
+    evidence: []

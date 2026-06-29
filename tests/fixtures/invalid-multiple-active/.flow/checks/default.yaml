@@ -1,0 +1,5 @@
+checks:
+  - name: unit tests
+    command: pnpm.cmd test
+    cwd: .
+    required: true

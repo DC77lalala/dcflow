@@ -1,0 +1,9 @@
+checks:
+  - name: unit tests
+    command: pnpm.cmd test
+    cwd: .
+    required: true
+  - name: production build
+    command: pnpm.cmd build
+    cwd: .
+    required: true

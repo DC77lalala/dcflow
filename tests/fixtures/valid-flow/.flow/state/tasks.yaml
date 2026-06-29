@@ -1,0 +1,16 @@
+tasks:
+  - id: log-001
+    title: 登录日志新增已删除用户标记
+    status: active
+    priority: 1
+    verification:
+      - pnpm.cmd test
+    evidence: []
+  - id: log-002
+    title: 访问日志支持请求用户模糊筛选
+    status: not_started
+    priority: 2
+    verification:
+      - pnpm.cmd test
+      - pnpm.cmd build
+    evidence: []

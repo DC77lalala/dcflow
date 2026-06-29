@@ -1,0 +1,7 @@
+tasks:
+  - id: log-001
+    status: active
+    priority: 1
+    verification:
+      - pnpm.cmd test
+    evidence: []

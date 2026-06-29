@@ -1,0 +1,7 @@
+project:
+  name: demo-project
+flow:
+  current: harness
+adapters:
+  enabled:
+    - claude
