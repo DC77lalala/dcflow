@@ -313,3 +313,77 @@ Verification:
 Next:
 
 - Continue with Plan 4: implement `start` to generate the current AI work packet from the active task.
+
+## 2026-06-30 - Plan 4 Agreed Scope
+
+Scope:
+
+- Implement `start` as a read-only command that generates the current AI work packet.
+- Use the active task selected by `task active`.
+- Include enough `.flow` context for Claude, Codex, Cursor, or another AI coding tool to continue the task without rereading the whole project.
+
+Command design:
+
+- `dcflow start` reads `.flow/config.yaml`, `.flow/state/tasks.yaml`, `.flow/checks/default.yaml`, and `.flow/state/handoff.md`.
+- It requires exactly one active task.
+- It prints a Markdown-style work packet to stdout.
+- It does not modify `.flow` state.
+
+Out of scope for Plan 4:
+
+- Running checks.
+- Updating task status.
+- Writing work packets to disk.
+- Detecting changed files.
+- Tool-specific prompt formats.
+
+Next:
+
+- Implement Plan 4 with TDD and update this log again when completed.
+
+## 2026-06-30 - Plan 4 Completed
+
+Scope:
+
+- Implement `start` as a read-only command that generates a Markdown-style AI work packet.
+- Read active task, project config, checks, handoff, and validation status from `.flow`.
+- Keep the command focused on context injection; no task state is modified.
+
+Status:
+
+- Completed.
+
+Files created:
+
+- `src/commands/start.ts`
+- `tests/unit/start.test.ts`
+
+Files modified:
+
+- `src/cli.ts`
+- `README.md`
+- `docs/execution-log.md`
+
+Implementation notes:
+
+- `getStartWorkPacket` reads `.flow/config.yaml`, `.flow/state/tasks.yaml`, `.flow/checks/default.yaml`, and `.flow/state/handoff.md`.
+- `startCommand` renders a Markdown-style packet with project, flow, validation state, active task, flow rules, checks, and handoff.
+- `start` requires an active task and fails with `No active task found. Run \`dcflow task active <task-id>\` first.` when none exists.
+- The command is intentionally read-only; `check` and `finish` will handle execution and state transitions in later plans.
+
+TDD evidence:
+
+- First Plan 4 test run failed because `src/commands/start.ts` did not exist yet.
+- After implementation, `tests/unit/start.test.ts` passed alongside the existing command and schema tests.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 9 test files, 35 tests.
+- `pnpm.cmd build`: passed, generated `dist/index.js`, `dist/index.js.map`, and `dist/index.d.ts`.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-plan4`: `init`, `task add`, `task active`, and `start` all passed.
+- `start` output included project name, flow name, `Validation: ok`, active task details, flow rules, configured checks, and handoff content.
+- A regression test was added for the initial handoff template so new projects no longer include obsolete Plan 3 instructions or the unsupported `--active` option.
+
+Next:
+
+- Continue with Plan 5: implement `check`.

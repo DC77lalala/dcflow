@@ -141,11 +141,12 @@ Current flow: {{flowName}}
 ## Current State
 
 - No active task has been created yet.
-- Use \`dcflow task add "task title" --active\` after Plan 3 is implemented.
+- Run \`dcflow task add "task title"\` to create the first task.
+- Run \`dcflow task active <task-id>\` to select the current task.
 
 ## Next Step
 
-- Run \`dcflow status\` after Plan 3 is implemented.
+- Run \`dcflow start\` to generate the AI work packet after selecting an active task.
 `;
 
 const AGENTS_TEMPLATE = `# {{projectName}} AI Flow Entry

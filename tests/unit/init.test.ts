@@ -58,6 +58,19 @@ describe('init project', () => {
     });
   });
 
+  it('creates a current handoff without obsolete plan instructions', async () => {
+    await withTempProject(async (root) => {
+      await initProject({ root, yes: true, force: false, projectName: 'handoff-demo' });
+
+      const handoff = await readFile(join(root, '.flow/state/handoff.md'), 'utf8');
+
+      expect(handoff).toContain('Run `dcflow task add "task title"`');
+      expect(handoff).toContain('Run `dcflow task active <task-id>`');
+      expect(handoff).not.toContain('after Plan 3 is implemented');
+      expect(handoff).not.toContain('--active');
+    });
+  });
+
   it('does not overwrite existing files without force', async () => {
     await withTempProject(async (root) => {
       await writeFile(join(root, 'AGENTS.md'), 'existing agent rules');

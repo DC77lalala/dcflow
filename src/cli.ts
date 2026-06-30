@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { initProject } from './commands/init.js';
+import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 import { activateTaskCommand, addTaskCommand, listTaskCommand } from './commands/task.js';
 
@@ -90,8 +91,9 @@ export function createProgram(): Command {
   program
     .command('start')
     .description('Build the current AI work packet')
-    .action(() => {
-      console.log('dcflow start is not implemented yet. See Plan 4.');
+    .action(async () => {
+      const lines = await startCommand();
+      printLines(lines);
     });
 
   // Plan 5 会实现：按 .flow/checks/default.yaml 运行构建、测试或 smoke check。
