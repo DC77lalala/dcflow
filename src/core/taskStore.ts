@@ -14,6 +14,13 @@ export type ActivateFlowTaskOptions = {
   taskId: string;
 };
 
+export type FinishActiveTaskOptions = {
+  root?: string;
+  status: Extract<FlowTask['status'], 'passing' | 'blocked'>;
+  evidence: string[];
+  notes?: string;
+};
+
 const TASKS_FILE_PATH = ['.flow', 'state', 'tasks.yaml'] as const;
 
 /**
@@ -86,6 +93,40 @@ export async function activateFlowTask(options: ActivateFlowTaskOptions): Promis
   return updatedTarget!;
 }
 
+/**
+ * 收尾当前 active 任务。
+ *
+ * `finish` 会把一次会话的校验结果沉淀为任务证据，并把 active 任务推进到
+ * `passing` 或 `blocked`。这里统一做写回，避免命令层直接拼 YAML。
+ */
+export async function finishActiveTask(options: FinishActiveTaskOptions): Promise<FlowTask> {
+  const root = resolve(options.root ?? process.cwd());
+  const tasksFile = await readTasksFile(root);
+  const activeTask = tasksFile.tasks.find((task) => task.status === 'active');
+
+  if (!activeTask) {
+    throw new Error('No active task found. Run `dcflow task active <task-id>` first.');
+  }
+
+  const updatedTasks = tasksFile.tasks.map((task) => {
+    if (task.id !== activeTask.id) {
+      return task;
+    }
+
+    return {
+      ...task,
+      status: options.status,
+      evidence: [...task.evidence, ...options.evidence],
+      notes: mergeTaskNotes(task.notes, options.notes),
+    };
+  });
+  const updatedTask = updatedTasks.find((task) => task.id === activeTask.id);
+
+  await writeTasksFile(root, { tasks: updatedTasks });
+
+  return updatedTask!;
+}
+
 async function writeTasksFile(root: string, tasksFile: TasksFile): Promise<void> {
   await writeFile(tasksPath(root), stringify(tasksFile), 'utf8');
 }
@@ -113,6 +154,18 @@ function buildUniqueTaskId(now: Date, existingTasks: FlowTask[]): string {
 
 function downgradeActiveStatus(status: FlowTask['status']): FlowTask['status'] {
   return status === 'active' ? 'not_started' : status;
+}
+
+function mergeTaskNotes(current: string | undefined, incoming: string | undefined): string | undefined {
+  if (!incoming || incoming.trim().length === 0) {
+    return current;
+  }
+
+  if (!current || current.trim().length === 0) {
+    return incoming.trim();
+  }
+
+  return `${current.trim()}\n\n${incoming.trim()}`;
 }
 
 function formatTaskTimestamp(now: Date): string {

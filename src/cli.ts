@@ -1,4 +1,6 @@
 import { Command } from 'commander';
+import { formatCheckRunResult, runChecks } from './commands/check.js';
+import { formatFinishResult, runFinish } from './commands/finish.js';
 import { initProject } from './commands/init.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
@@ -100,16 +102,26 @@ export function createProgram(): Command {
   program
     .command('check')
     .description('Run configured verification checks')
-    .action(() => {
-      console.log('dcflow check is not implemented yet. See Plan 5.');
+    .action(async () => {
+      const result = await runChecks();
+      printLines(formatCheckRunResult(result));
+
+      if (!result.ok) {
+        process.exitCode = 1;
+      }
     });
 
   // Plan 6 会实现：记录验证证据、更新 handoff，并推进任务状态。
   program
     .command('finish')
     .description('Finish the current flow session')
-    .action(() => {
-      console.log('dcflow finish is not implemented yet. See Plan 6.');
+    .action(async () => {
+      const result = await runFinish();
+      printLines(formatFinishResult(result));
+
+      if (!result.ok) {
+        process.exitCode = 1;
+      }
     });
 
   // Plan 8 会实现：切换 harness、loop 或未来新增的 flow strategy。

@@ -387,3 +387,155 @@ Verification:
 Next:
 
 - Continue with Plan 5: implement `check`.
+
+## 2026-06-30 - Plan 5 Agreed Scope
+
+Scope:
+
+- Implement `check` to execute configured local verification commands.
+- Read checks from `.flow/checks/default.yaml`.
+- Print one result per check and a summary.
+- Treat required check failures as command failures.
+
+Command design:
+
+- `dcflow check` runs checks sequentially.
+- Each check uses its configured `command`, `cwd`, and `required` flag.
+- Required failures make the command fail.
+- Optional failures are reported but do not make the command fail.
+
+Out of scope for Plan 5:
+
+- Parallel check execution.
+- Persisting check evidence into task state.
+- Updating task status.
+- Shell-specific interactive commands.
+- Check retries or timeouts.
+
+Next:
+
+- Implement Plan 5 with TDD and update this log again when completed.
+
+## 2026-06-30 - Plan 5 Completed
+
+Scope:
+
+- Implement `check` to execute `.flow/checks/default.yaml`.
+- Run checks sequentially and report one result per check.
+- Fail the command when any required check fails.
+- Report optional failures without failing the overall run.
+
+Status:
+
+- Completed.
+
+Files created:
+
+- `src/commands/check.ts`
+- `tests/unit/check.test.ts`
+
+Files modified:
+
+- `src/cli.ts`
+- `README.md`
+- `docs/execution-log.md`
+
+Implementation notes:
+
+- `runChecks` reads `.flow/checks/default.yaml`, executes each command with `execaCommand`, and returns structured results for later `finish` evidence reuse.
+- `checkCommand` renders readable CLI output, including command, cwd, required flag, exit code, stdout, stderr, and summary.
+- Required failures set `process.exitCode = 1` in the CLI.
+- Optional failures appear in the summary but do not fail the overall command.
+- Commands currently run with `shell: true` for practical Windows/PowerShell compatibility.
+
+TDD evidence:
+
+- First Plan 5 test run failed because `src/commands/check.ts` did not exist yet.
+- Tests cover required pass, required failure, optional failure, and readable output summary.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 10 test files, 39 tests.
+- `pnpm.cmd build`: passed, generated `dist/index.js`, `dist/index.js.map`, and `dist/index.d.ts`.
+- Manual success path in `D:\code\dc_code\dcflow-demo-plan4`: `check` ran the default `node --version` check and printed `Summary: 1 passed, 0 failed`.
+- Manual required failure path in `D:\code\dc_code\dcflow-demo-plan5-fail`: `check` ran `node -e "process.exit(3)"`, printed `Required checks failed.`, and exited with code 1.
+
+Next:
+
+- Continue with Plan 6: implement `finish`.
+
+## 2026-06-30 - Plan 6 Agreed Scope
+
+Scope:
+
+- Implement `finish` as the session close command.
+- Require an active task before running checks or changing state.
+- Run the configured checks from `.flow/checks/default.yaml`.
+- Record check evidence into the active task.
+- Update `.flow/state/handoff.md` with the latest finish summary.
+- Move the active task to `passing` when required checks pass.
+- Move the active task to `blocked` when any required check fails.
+
+Command design:
+
+- `dcflow finish` reuses the Plan 5 `runChecks` implementation.
+- Required check failures make the command fail with exit code 1.
+- Optional check failures are recorded as evidence but do not block the task from becoming `passing`.
+- The command writes both success and failure evidence so the next AI session can recover the exact state.
+
+Out of scope for Plan 6:
+
+- Interactive notes.
+- Appending a full historical handoff log.
+- Git diff capture.
+- Auto-committing changes.
+- Flow-specific finish strategies for Harness vs Loop.
+
+## 2026-06-30 - Plan 6 Completed
+
+Scope:
+
+- Implement `finish` to run checks, persist evidence, update handoff, and advance task status.
+- Preserve a readable CLI summary for both passing and blocked results.
+
+Status:
+
+- Completed.
+
+Files created:
+
+- `src/commands/finish.ts`
+- `tests/unit/finish.test.ts`
+
+Files modified:
+
+- `src/core/taskStore.ts`
+- `src/cli.ts`
+- `README.md`
+- `docs/execution-log.md`
+
+Implementation notes:
+
+- `runFinish` reads the active task, project config, and check results, then writes the finish state.
+- `finishActiveTask` centralizes task state mutation in `taskStore` so command code does not hand-roll YAML updates.
+- Passing required checks move the active task to `passing`.
+- Failed required checks move the active task to `blocked` and set the CLI exit code to 1.
+- Evidence entries include timestamp, PASS/FAIL, check name, required flag, and exit code.
+- `.flow/state/handoff.md` is refreshed with the latest task, result, check summary, and next step.
+
+TDD evidence:
+
+- First Plan 6 test run failed because `src/commands/finish.ts` did not exist yet.
+- Tests cover passing finish, blocked finish, readable output, and the no-active-task guard.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 11 test files, 43 tests.
+- `pnpm.cmd build`: passed, generated `dist/index.js`, `dist/index.js.map`, and `dist/index.d.ts`.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-plan6`: `init`, `task add`, `task active`, and `finish` all passed.
+- Manual `finish` output showed `Result: passing` and `Checks: 1 passed, 0 failed`.
+- Manual state validation confirmed the task moved to `passing`, evidence was written to `.flow/state/tasks.yaml`, and the latest summary was written to `.flow/state/handoff.md`.
+
+Next:
+
+- Continue with Plan 7: implement `adopt`.
