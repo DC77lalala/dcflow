@@ -539,3 +539,80 @@ Verification:
 Next:
 
 - Continue with Plan 7: implement `adopt`.
+
+## 2026-06-30 - Plan 7 Agreed Scope
+
+Scope:
+
+- Implement `adopt` for existing projects.
+- Create missing `.flow` files without overwriting existing project files.
+- Detect project type using the existing project detector.
+- Preserve existing AI entry files such as `AGENTS.md`, `CLAUDE.md`, and `.cursorrules`.
+- Generate `.flow/adoption-report.md` with detected signals, existing AI files, generated checks, and next steps.
+- Infer default checks from common project signals:
+  - Node/Vue projects: `npm run test` and/or `npm run build` when scripts exist.
+  - Maven projects: `mvn test`.
+  - Unknown projects: `node --version` placeholder.
+
+Command design:
+
+- `dcflow adopt` runs in the current project directory.
+- `dcflow adopt --project-name <name>` can override the detected project name.
+- Existing files are reported as skipped instead of overwritten.
+- The command is intentionally non-destructive so it can be tried on old projects safely.
+
+Out of scope for Plan 7:
+
+- Moving or rewriting existing AI rule files.
+- Deep framework-specific check inference.
+- Interactive migration prompts.
+- Applying changes to `package.json`.
+- Real adoption against `D:\code\shanyu-bg`; that should happen after the command behavior is stable.
+
+## 2026-06-30 - Plan 7 Completed
+
+Scope:
+
+- Implement `adopt` as a safe existing-project onboarding command.
+- Generate `.flow` state, checks, handoff, and an adoption report.
+- Preserve existing AI entry files by skipping them.
+
+Status:
+
+- Completed.
+
+Files created:
+
+- `src/commands/adopt.ts`
+- `tests/unit/adopt.test.ts`
+
+Files modified:
+
+- `src/cli.ts`
+- `README.md`
+- `docs/execution-log.md`
+
+Implementation notes:
+
+- `adoptProject` writes only missing files and records existing files in `skipped`.
+- Existing `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` are detected and reported.
+- Node/Vue checks are inferred from `package.json` scripts.
+- Maven checks use `mvn test`.
+- `.flow/adoption-report.md` records detected project type, signals, existing AI files, generated checks, and next steps.
+- `package.json` parsing strips a UTF-8 BOM so files written by PowerShell are handled correctly.
+
+TDD evidence:
+
+- First Plan 7 test run failed because `src/commands/adopt.ts` did not exist yet.
+- Tests cover safe adoption with existing AI files, Maven check inference, repeated adoption skipping, and readable CLI output.
+- A manual CLI run exposed UTF-8 BOM handling in `package.json`; regression tests were added before fixing it.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 12 test files, 49 tests.
+- `pnpm.cmd build`: passed, generated `dist/index.js`, `dist/index.js.map`, and `dist/index.d.ts`.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-plan7-bom`: `adopt` preserved an existing `AGENTS.md`, detected a Node project from `package.json`, inferred `npm run test` and `npm run build`, created `.flow/adoption-report.md`, and created `CLAUDE.md`.
+
+Next:
+
+- Continue with Plan 8: implement `switch`.

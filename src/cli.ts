@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { adoptCommand } from './commands/adopt.js';
 import { formatCheckRunResult, runChecks } from './commands/check.js';
 import { formatFinishResult, runFinish } from './commands/finish.js';
 import { initProject } from './commands/init.js';
@@ -47,8 +48,10 @@ export function createProgram(): Command {
   program
     .command('adopt')
     .description('Adopt dcflow into an existing project')
-    .action(() => {
-      console.log('dcflow adopt is not implemented yet. See Plan 7.');
+    .option('--project-name <name>', 'Project name written to .flow/config.yaml')
+    .action(async (options: { projectName?: string }) => {
+      const lines = await adoptCommand({ projectName: options.projectName });
+      printLines(lines);
     });
 
   // task 是一组子命令，后续负责新增任务、列出任务、维护 active 任务。

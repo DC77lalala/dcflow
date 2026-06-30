@@ -34,6 +34,17 @@ describe('project detector', () => {
     });
   });
 
+  it('reads package names from UTF-8 BOM package.json files', async () => {
+    await withTempProject(async (root) => {
+      await writeFile(join(root, 'package.json'), '\uFEFF{"name":"bom-demo"}', 'utf8');
+
+      const result = await detectProject(root);
+
+      expect(result.type).toBe('node');
+      expect(result.packageName).toBe('bom-demo');
+    });
+  });
+
   it('detects a Maven project from pom.xml', async () => {
     await withTempProject(async (root) => {
       await writeFile(join(root, 'pom.xml'), '<project></project>');

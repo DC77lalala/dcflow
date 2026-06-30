@@ -33,7 +33,7 @@ async function fileExists(root: string, fileName: string): Promise<boolean> {
 async function readPackageName(root: string): Promise<string | undefined> {
   try {
     const raw = await readFile(join(root, 'package.json'), 'utf8');
-    const parsed = JSON.parse(raw) as { name?: unknown };
+    const parsed = JSON.parse(stripBom(raw)) as { name?: unknown };
     return typeof parsed.name === 'string' && parsed.name.length > 0 ? parsed.name : undefined;
   } catch {
     return undefined;
@@ -85,4 +85,8 @@ export async function detectProject(root: string): Promise<ProjectDetection> {
   }
 
   return { type: 'custom', signals, packageName };
+}
+
+function stripBom(value: string): string {
+  return value.charCodeAt(0) === 0xfeff ? value.slice(1) : value;
 }
