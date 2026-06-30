@@ -5,6 +5,7 @@ import { formatFinishResult, runFinish } from './commands/finish.js';
 import { initProject } from './commands/init.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
+import { switchCommand } from './commands/switch.js';
 import { activateTaskCommand, addTaskCommand, listTaskCommand } from './commands/task.js';
 
 export const VERSION = '0.1.0';
@@ -132,8 +133,9 @@ export function createProgram(): Command {
     .command('switch')
     .argument('[strategy]', 'flow strategy name')
     .description('Switch active flow strategy')
-    .action((strategy?: string) => {
-      console.log(`dcflow switch is not implemented yet. Strategy: ${strategy ?? '(none)'}`);
+    .action(async (strategy?: string) => {
+      const lines = await switchCommand({ strategy });
+      printLines(lines);
     });
 
   return program;

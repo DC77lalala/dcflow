@@ -616,3 +616,74 @@ Verification:
 Next:
 
 - Continue with Plan 8: implement `switch`.
+
+## 2026-06-30 - Plan 8 Agreed Scope
+
+Scope:
+
+- Implement `switch` to update the current flow strategy in `.flow/config.yaml`.
+- Support the built-in strategies already defined by schema: `harness` and `loop`.
+- Reject missing or unsupported strategies before writing config.
+- Preserve existing project and adapter config when switching.
+- Keep this plan focused on configuration switching only.
+
+Command design:
+
+- `dcflow switch loop` changes `flow.current` from `harness` to `loop`.
+- `dcflow switch harness` changes it back to `harness`.
+- Re-switching to the current strategy reports unchanged.
+- Unknown strategies fail with a readable error.
+
+Out of scope for Plan 8:
+
+- Strategy-specific `start` work packet content.
+- Strategy plugins.
+- Per-strategy check templates.
+- Migration of tasks between strategy state machines.
+
+## 2026-06-30 - Plan 8 Completed
+
+Scope:
+
+- Implement `switch` as a validated `.flow/config.yaml` update command.
+- Wire the command into the CLI.
+- Add tests for switching, unchanged switching, missing strategy, unsupported strategy, and readable output.
+
+Status:
+
+- Completed.
+
+Files created:
+
+- `src/commands/switch.ts`
+- `tests/unit/switch.test.ts`
+
+Files modified:
+
+- `src/cli.ts`
+- `README.md`
+- `docs/execution-log.md`
+
+Implementation notes:
+
+- `switchFlow` reads `.flow/config.yaml`, validates the requested strategy with `flowNameSchema`, and writes the updated config.
+- Project name and adapter configuration are preserved.
+- Missing strategy fails with `Flow strategy is required. Supported strategies: harness, loop.`
+- Unsupported strategy fails with `Unsupported flow strategy: <name>. Supported strategies: harness, loop.`
+- Re-switching to the same strategy reports `Flow unchanged`.
+
+TDD evidence:
+
+- First Plan 8 test run failed because `src/commands/switch.ts` did not exist yet.
+- Tests cover successful switch, unchanged switch, unsupported strategy, missing strategy, and formatted CLI output.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 55 tests.
+- `pnpm.cmd build`: passed, generated `dist/index.js`, `dist/index.js.map`, and `dist/index.d.ts`.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-plan8`: `init`, `status`, `switch loop`, and `status` all passed.
+- Manual state validation confirmed `.flow/config.yaml` changed from `flow.current: harness` to `flow.current: loop` while preserving project name and adapters.
+
+Next:
+
+- Continue with Plan 9: add strategy-specific behavior to `start`.
