@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parse } from 'yaml';
+import { getFlowStrategyRules, type FlowStrategyRules } from '../core/flowStrategies.js';
 import { validateFlowFiles } from '../core/schemaValidator.js';
 import { readTasksFile } from '../core/taskStore.js';
 import { checksFileSchema, type FlowCheck } from '../schemas/checks.js';
@@ -15,6 +16,7 @@ export type StartWorkPacket = {
   projectName: string;
   flowName: string;
   activeTask: FlowTask;
+  flowRules: FlowStrategyRules;
   checks: FlowCheck[];
   handoff: string;
   validationOk: boolean;
@@ -46,6 +48,7 @@ export async function getStartWorkPacket(
     projectName: config.project.name,
     flowName: config.flow.current,
     activeTask,
+    flowRules: getFlowStrategyRules(config.flow.current),
     checks: checksFile.checks,
     handoff,
     validationOk: validation.ok,
@@ -73,17 +76,14 @@ export async function startCommand(options: StartCommandOptions = {}): Promise<s
     ...formatOptionalTaskSection('evidence', packet.activeTask.evidence),
     ...formatTaskNotes(packet.activeTask.notes),
     '',
-    '## Flow Rules',
-    '- Work only on the active task unless the user explicitly changes scope.',
-    '- Keep changes scoped and consistent with the existing project style.',
-    '- Run the configured checks before claiming completion.',
-    '- Record blockers, risks, and verification evidence before finishing.',
+    `## Flow Rules: ${packet.flowRules.title}`,
+    ...formatFlowRules(packet.flowRules.rules),
     '',
     '## Checks',
     ...formatChecks(packet.checks),
     '',
     '## Handoff',
-    ...formatBlock(packet.handoff),
+    ...formatHandoff(packet.handoff, packet.flowName),
   ];
 }
 
@@ -136,7 +136,17 @@ function formatChecks(checks: FlowCheck[]): string[] {
   );
 }
 
+function formatFlowRules(rules: string[]): string[] {
+  return rules.map((rule) => `- ${rule}`);
+}
+
 function formatBlock(value: string): string[] {
   const lines = value.trim().split(/\r?\n/);
   return lines.length === 0 ? ['(empty)'] : lines;
+}
+
+function formatHandoff(value: string, flowName: StartWorkPacket['flowName']): string[] {
+  return formatBlock(value).map((line) =>
+    line.startsWith('Current flow:') ? `Current flow: ${flowName}` : line,
+  );
 }

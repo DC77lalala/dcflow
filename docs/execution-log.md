@@ -687,3 +687,72 @@ Verification:
 Next:
 
 - Continue with Plan 9: add strategy-specific behavior to `start`.
+
+## 2026-06-30 - Plan 9 Agreed Scope
+
+Scope:
+
+- Make `start` output different flow rules based on `.flow/config.yaml` `flow.current`.
+- Keep `start` read-only.
+- Preserve the existing work packet sections: project, flow, validation, active task, checks, and handoff.
+- Add Harness-specific rules for Blueprint / Spec driven work.
+- Add Loop-specific rules for Observe / Plan / Act / Verify / Reflect.
+
+Command design:
+
+- `dcflow start` in `harness` mode prints `## Flow Rules: Harness`.
+- `dcflow start` in `loop` mode prints `## Flow Rules: Loop`.
+- `dcflow switch loop` followed by `dcflow start` should produce Loop rules without changing the active task.
+
+Out of scope for Plan 9:
+
+- Strategy plugins.
+- Strategy-specific state machines.
+- Strategy-specific check generation.
+- Changing task statuses during `start`.
+
+## 2026-06-30 - Plan 9 Completed
+
+Scope:
+
+- Implement strategy-specific `start` work packet rules for Harness and Loop.
+- Keep the rules centralized outside `start` so later strategies can be added without bloating the command.
+
+Status:
+
+- Completed.
+
+Files created:
+
+- `src/core/flowStrategies.ts`
+
+Files modified:
+
+- `src/commands/start.ts`
+- `tests/unit/start.test.ts`
+- `README.md`
+- `docs/execution-log.md`
+
+Implementation notes:
+
+- `getFlowStrategyRules` maps `harness` and `loop` to their rule title and rule list.
+- `startCommand` now renders `## Flow Rules: Harness` or `## Flow Rules: Loop` based on the current config.
+- Harness rules emphasize Blueprint, Spec, task state, quality gate, and finish learning.
+- Loop rules emphasize Observe, Plan, Act, Verify, and Reflect.
+- `start` remains read-only.
+
+TDD evidence:
+
+- First Plan 9 test run failed because `start` still rendered the generic `## Flow Rules` section.
+- Tests cover Harness rule output and Loop rule output after `switchFlow({ strategy: 'loop' })`.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 58 tests.
+- `pnpm.cmd build`: passed, generated `dist/index.js`, `dist/index.js.map`, and `dist/index.d.ts`.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-plan9-clean`: `start` in harness mode printed `## Flow Rules: Harness`, then `switch loop` followed by `start` printed `## Flow Rules: Loop`.
+- Manual validation also confirmed the rendered handoff `Current flow:` line follows the current config after switching.
+
+Next:
+
+- Continue with real project validation against `D:\code\shanyu-bg`, or start Plan 10 for plugin-style strategy extension.
