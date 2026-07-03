@@ -112,6 +112,9 @@ dcflow adopt --project-name personal-blog
 4. 不要修改业务代码。
 ```
 
+> 或者直接让你的 agent 分析项目也行，codex 和 claude code 会自动去读取AGENTS.md / CLAUDE.md 。
+> 目前是只有这两个 agent 的模板init 。
+
 ## 结果展示
 
 执行 `init` 或 `adopt` 后，项目中会出现类似结构：
@@ -136,6 +139,14 @@ dcflow adopt --project-name personal-blog
       ├─ tasks.yaml
       └─ handoff.md
 ```
+
+如图：
+- init
+<img width="664" height="213" alt="image" src="https://github.com/user-attachments/assets/f073fbf3-7bfb-48eb-a834-7887a025689a" />
+
+- finish
+<img width="928" height="273" alt="image" src="https://github.com/user-attachments/assets/79f234e6-eb6b-4f7e-bd5b-4f597aa6db82" />
+
 
 核心文件用途：
 
