@@ -11,6 +11,7 @@ dcflow 是一个面向 AI 辅助开发的 Flow Runtime CLI。它把项目中的 
 - 想先把 Harness 这类 AI 开发流程统一成项目内可维护规则。
 - 团队每个成员有独立的Harness 不方便维护。
 
+> 我说白了白说了就是省去手动创建 Harness 工程的麻烦
 ## 快速开始
 
 你可以用两种方式使用 dcflow。
