@@ -1,0 +1,9 @@
+checks:
+  - name: npm test
+    command: npm run test
+    cwd: .
+    required: true
+  - name: npm build
+    command: npm run build
+    cwd: .
+    required: true

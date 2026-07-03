@@ -1,4 +1,11 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { parse } from 'yaml';
 import { activateFlowTask, addFlowTask, readTasksFile } from '../core/taskStore.js';
+import { renderTemplate } from '../core/templateRenderer.js';
+import { configSchema } from '../schemas/config.js';
+import { type FlowTask } from '../schemas/tasks.js';
+import { getTemplates } from '../templates/index.js';
 
 export type TaskCommandOptions = {
   root?: string;
@@ -25,6 +32,8 @@ export async function addTaskCommand(options: AddTaskCommandOptions): Promise<st
 
 export async function activateTaskCommand(options: ActivateTaskCommandOptions): Promise<string[]> {
   const task = await activateFlowTask(options);
+  await writeActiveTaskHandoff(options.root, task);
+
   return [`active ${task.id}: ${task.title}`];
 }
 
@@ -43,4 +52,28 @@ export async function listTaskCommand(options: TaskCommandOptions = {}): Promise
   return tasksFile.tasks.map(
     (task) => `- ${task.id} [${task.status}] P${task.priority} ${task.title}`,
   );
+}
+
+async function writeActiveTaskHandoff(
+  rootOption: string | undefined,
+  task: FlowTask,
+): Promise<void> {
+  const root = resolve(rootOption ?? process.cwd());
+  const config = await readConfig(root);
+  const templates = getTemplates(config.language);
+  const content = renderTemplate(templates.handoff.activeTask, {
+    projectName: config.project.name,
+    flowName: config.flow.current,
+    taskId: task.id,
+    taskTitle: task.title,
+    taskStatus: task.status,
+    taskPriority: task.priority,
+  });
+
+  await writeFile(join(root, '.flow', 'state', 'handoff.md'), content, 'utf8');
+}
+
+async function readConfig(root: string) {
+  const raw = await readFile(join(root, '.flow', 'config.yaml'), 'utf8');
+  return configSchema.parse(parse(raw));
 }

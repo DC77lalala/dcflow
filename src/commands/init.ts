@@ -1,21 +1,32 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { stringify } from 'yaml';
+import {
+  buildConflictTemplatePath,
+  formatConflictTimestamp,
+  isTemplateConflictCandidate,
+  type TemplateConflict,
+} from '../core/conflictTemplates.js';
 import { detectProject } from '../core/projectDetector.js';
 import { renderTemplate } from '../core/templateRenderer.js';
+import { getTemplates, resolveLanguage, type TemplateLanguage } from '../templates/index.js';
 
 export type InitOptions = {
   root?: string;
   yes?: boolean;
   force?: boolean;
   projectName?: string;
+  language?: string;
+  now?: Date;
 };
 
 export type InitResult = {
   root: string;
   projectName: string;
+  language: TemplateLanguage;
   created: string[];
   skipped: string[];
+  conflicts: TemplateConflict[];
 };
 
 type FileToWrite = {
@@ -34,25 +45,54 @@ export async function initProject(options: InitOptions = {}): Promise<InitResult
   const force = options.force ?? false;
   const detection = await detectProject(root);
   const projectName = options.projectName ?? detection.packageName ?? basename(root);
+  const language = resolveLanguage(options.language);
 
   if (!options.yes && !options.projectName) {
     throw new Error('Interactive init is not implemented yet. Use --yes for default initialization.');
   }
 
-  const files = buildInitialFiles(projectName);
+  const files = buildInitialFiles(projectName, language);
   const created: string[] = [];
   const skipped: string[] = [];
+  const conflicts: TemplateConflict[] = [];
+  const timestamp = formatConflictTimestamp(options.now ?? new Date());
+  const existingFiles = new Set<string>();
 
   for (const file of files) {
     const target = join(root, file.relativePath);
     const exists = await pathExists(target);
-
-    if (exists && !force) {
-      throw new Error(`${file.relativePath} already exists. Re-run with --force to overwrite it.`);
+    if (exists) {
+      existingFiles.add(file.relativePath);
     }
+
+    if (exists && !force && !isTemplateConflictCandidate(file.relativePath)) {
+      throw new Error(
+        `${file.relativePath} already exists. This project may already be initialized. Use adopt for existing projects, or inspect .flow before running init.`,
+      );
+    }
+  }
+
+  for (const file of files) {
+    const target = join(root, file.relativePath);
+    const exists = existingFiles.has(file.relativePath);
 
     if (exists && force) {
       skipped.push(file.relativePath);
+    }
+
+    if (exists && !force && isTemplateConflictCandidate(file.relativePath)) {
+      skipped.push(file.relativePath);
+      const templateCopyPath = buildConflictTemplatePath(file.relativePath, timestamp);
+      const templateTarget = join(root, templateCopyPath);
+      await mkdir(join(templateTarget, '..'), { recursive: true });
+      await writeFile(templateTarget, file.content, 'utf8');
+      created.push(templateCopyPath);
+      conflicts.push({
+        originalPath: file.relativePath,
+        templateCopyPath,
+        reason: 'existing-ai-entry',
+      });
+      continue;
     }
 
     await mkdir(join(target, '..'), { recursive: true });
@@ -63,12 +103,15 @@ export async function initProject(options: InitOptions = {}): Promise<InitResult
   return {
     root,
     projectName,
+    language,
     created,
     skipped,
+    conflicts,
   };
 }
 
-function buildInitialFiles(projectName: string): FileToWrite[] {
+function buildInitialFiles(projectName: string, language: TemplateLanguage): FileToWrite[] {
+  const templates = getTemplates(language);
   const templateVars = {
     projectName,
     flowName: 'harness',
@@ -80,6 +123,7 @@ function buildInitialFiles(projectName: string): FileToWrite[] {
       content: stringify({
         project: { name: projectName },
         flow: { current: 'harness' },
+        language,
         adapters: { enabled: ['claude', 'codex'] },
       }),
     },
@@ -89,7 +133,11 @@ function buildInitialFiles(projectName: string): FileToWrite[] {
     },
     {
       relativePath: '.flow/state/handoff.md',
-      content: renderTemplate(HANDOFF_TEMPLATE, templateVars),
+      content: renderTemplate(templates.handoff.init, templateVars),
+    },
+    {
+      relativePath: '.flow/work-packet.md',
+      content: renderTemplate(templates.workPacket, templateVars),
     },
     {
       relativePath: '.flow/checks/default.yaml',
@@ -105,12 +153,20 @@ function buildInitialFiles(projectName: string): FileToWrite[] {
       }),
     },
     {
+      relativePath: '.flow/docs/README.md',
+      content: templates.workspaceDocs.docsReadme,
+    },
+    {
+      relativePath: '.flow/attachments/README.md',
+      content: templates.workspaceDocs.attachmentsReadme,
+    },
+    {
       relativePath: 'AGENTS.md',
-      content: renderTemplate(AGENTS_TEMPLATE, templateVars),
+      content: renderTemplate(templates.agents.init, templateVars),
     },
     {
       relativePath: 'CLAUDE.md',
-      content: renderTemplate(AGENTS_TEMPLATE, templateVars),
+      content: renderTemplate(templates.agents.init, templateVars),
     },
   ];
 }
@@ -132,36 +188,3 @@ export async function readTextIfExists(path: string): Promise<string | undefined
     return undefined;
   }
 }
-
-const HANDOFF_TEMPLATE = `# Flow Handoff
-
-Project: {{projectName}}
-Current flow: {{flowName}}
-
-## Current State
-
-- No active task has been created yet.
-- Run \`dcflow task add "task title"\` to create the first task.
-- Run \`dcflow task active <task-id>\` to select the current task.
-
-## Next Step
-
-- Run \`dcflow start\` to generate the AI work packet after selecting an active task.
-`;
-
-const AGENTS_TEMPLATE = `# {{projectName}} AI Flow Entry
-
-This project uses dcflow to manage AI-assisted development.
-
-## Session Start
-
-1. Run \`flow start\` to read the current task and flow context.
-2. Follow the generated work packet.
-3. Do not mark work complete without verification evidence.
-
-## Session End
-
-1. Run \`flow check\`.
-2. Run \`flow finish\`.
-3. Record blockers and unresolved risks before ending the session.
-`;

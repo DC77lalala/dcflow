@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { initProject } from '../../src/commands/init.js';
+import { activateTaskCommand } from '../../src/commands/task.js';
 import { getStartWorkPacket, startCommand } from '../../src/commands/start.js';
 import { switchFlow } from '../../src/commands/switch.js';
 import { activateFlowTask, addFlowTask } from '../../src/core/taskStore.js';
@@ -42,7 +43,7 @@ describe('start command', () => {
           required: true,
         }),
       ]);
-      expect(packet.handoff).toContain('Flow Handoff');
+      expect(packet.handoff).toContain('Flow 交接');
       expect(packet.validationOk).toBe(true);
     });
   });
@@ -58,18 +59,40 @@ describe('start command', () => {
 
       const lines = await startCommand({ root });
 
-      expect(lines).toContain('# dcflow Work Packet');
-      expect(lines).toContain('Project: start-demo');
+      expect(lines).toContain('# dcflow 工作包');
+      expect(lines).toContain('项目: start-demo');
       expect(lines).toContain('Flow: harness');
+      expect(lines).toContain('## 当前任务');
       expect(lines).toContain('- id: task-20260630-093000');
-      expect(lines).toContain('- title: implement login api');
-      expect(lines).toContain('- status: active');
+      expect(lines).toContain('- 标题: implement login api');
+      expect(lines).toContain('- 状态: active');
       expect(lines).toContain('- placeholder check: node --version (cwd: ., required: true)');
-      expect(lines).toContain('Validation: ok');
+      expect(lines).toContain('## 校验命令');
+      expect(lines).toContain('## 交接信息');
+      expect(lines).toContain('校验: ok');
     });
   });
 
-  it('prints Harness-specific flow rules when the current flow is harness', async () => {
+  it('prints updated handoff after activating a task through the task command', async () => {
+    await withInitializedProject(async (root) => {
+      const task = await addFlowTask({
+        root,
+        title: 'implement login api',
+        now: new Date('2026-06-30T09:30:00.000+08:00'),
+      });
+      await activateTaskCommand({ root, taskId: task.id });
+
+      const lines = await startCommand({ root });
+
+      expect(lines).toContain('## 交接信息');
+      expect(lines).toContain('## 当前任务');
+      expect(lines).toContain('- id: task-20260630-093000');
+      expect(lines).toContain('- 标题: implement login api');
+      expect(lines).not.toContain('还没有创建 active 任务。');
+    });
+  });
+
+  it('prints Chinese Harness-specific flow rules when the current flow is harness', async () => {
     await withInitializedProject(async (root) => {
       const task = await addFlowTask({
         root,
@@ -81,9 +104,9 @@ describe('start command', () => {
       const lines = await startCommand({ root });
 
       expect(lines).toContain('## Flow Rules: Harness');
-      expect(lines).toContain('- Blueprint: read and preserve the project architecture intent before editing.');
-      expect(lines).toContain('- Spec: follow the project rule pool before choosing implementation style.');
-      expect(lines).toContain('- Finish: capture reusable lessons so the flow can improve after the task.');
+      expect(lines).toContain('- Blueprint：修改前先读取并保持项目架构意图。');
+      expect(lines).toContain('- Spec：先遵守项目规范池，再选择实现方式。');
+      expect(lines).toContain('- Finish：沉淀可复用经验，让 flow 随任务持续改进。');
       expect(lines).not.toContain('## Flow Rules: Loop');
     });
   });
@@ -102,11 +125,11 @@ describe('start command', () => {
 
       expect(lines).toContain('Flow: loop');
       expect(lines).toContain('## Flow Rules: Loop');
-      expect(lines).toContain('- Observe: inspect current state, evidence, and constraints before acting.');
-      expect(lines).toContain('- Plan: choose the smallest next loop step and state the expected outcome.');
-      expect(lines).toContain('- Act: make focused changes only for the active task.');
-      expect(lines).toContain('- Verify: run configured checks and compare the result with the plan.');
-      expect(lines).toContain('- Reflect: record what changed, what failed, and what the next loop should do.');
+      expect(lines).toContain('- Observe：行动前先观察当前状态、证据和约束。');
+      expect(lines).toContain('- Plan：选择最小下一步，并说明预期结果。');
+      expect(lines).toContain('- Act：只围绕 active 任务做聚焦修改。');
+      expect(lines).toContain('- Verify：运行配置的检查，并对照计划判断结果。');
+      expect(lines).toContain('- Reflect：记录变更、失败点和下一轮 loop 应做什么。');
       expect(lines).not.toContain('## Flow Rules: Harness');
     });
   });
@@ -124,9 +147,39 @@ describe('start command', () => {
       const lines = await startCommand({ root });
 
       expect(lines).toContain('Flow: loop');
-      expect(lines).toContain('Current flow: loop');
-      expect(lines).not.toContain('Current flow: harness');
+      expect(lines).toContain('当前 flow: loop');
+      expect(lines).not.toContain('当前 flow: harness');
     });
+  });
+
+  it('prints English work packet when language is en-US', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dcflow-start-en-'));
+
+    try {
+      await initProject({
+        root,
+        yes: true,
+        force: false,
+        projectName: 'start-demo',
+        language: 'en-US',
+      });
+      const task = await addFlowTask({
+        root,
+        title: 'implement login api',
+        now: new Date('2026-06-30T09:30:00.000+08:00'),
+      });
+      await activateFlowTask({ root, taskId: task.id });
+
+      const lines = await startCommand({ root });
+
+      expect(lines).toContain('# dcflow Work Packet');
+      expect(lines).toContain('Project: start-demo');
+      expect(lines).toContain('Validation: ok');
+      expect(lines).toContain('- title: implement login api');
+      expect(lines).toContain('- Blueprint: read and preserve the project architecture intent before editing.');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('fails when no active task exists', async () => {

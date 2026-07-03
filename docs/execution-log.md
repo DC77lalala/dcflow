@@ -756,3 +756,281 @@ Verification:
 Next:
 
 - Continue with real project validation against `D:\code\shanyu-bg`, or start Plan 10 for plugin-style strategy extension.
+
+## 2026-07-02 - Plan 10 Agreed Scope
+
+Scope:
+
+- Centralize generated templates instead of keeping long template strings inside command files.
+- Make Chinese the default template language for new dcflow projects.
+- Support `zh-CN` and `en-US` for generated project files and `start` work packets.
+- Store the selected language in `.flow/config.yaml` as `language`.
+- Add `--language zh-CN|en-US` to `init` and `adopt`.
+- Keep full interactive language selection out of this plan; CLI option plus default Chinese is the current minimum.
+
+Command design:
+
+- `dcflow init --yes --project-name <name>` creates Chinese templates by default.
+- `dcflow init --yes --project-name <name> --language en-US` creates English templates.
+- `dcflow adopt --language en-US` creates English adoption templates for old projects.
+- `dcflow start` reads `.flow/config.yaml` and renders its work packet in the configured language.
+
+Out of scope for Plan 10:
+
+- Translating every CLI status/error message.
+- Interactive prompts for language selection.
+- External user-editable template packs.
+- Plugin-style strategy loading.
+
+## 2026-07-02 - Plan 10 Completed
+
+Scope:
+
+- Implement template centralization and language-aware generated content.
+- Keep command behavior compatible with existing projects that do not yet have `language` in config.
+
+Status:
+
+- Completed.
+
+Files created:
+
+- `src/templates/types.ts`
+- `src/templates/zh-CN.ts`
+- `src/templates/en-US.ts`
+- `src/templates/index.ts`
+
+Files modified:
+
+- `src/cli.ts`
+- `src/commands/init.ts`
+- `src/commands/adopt.ts`
+- `src/commands/start.ts`
+- `src/core/flowStrategies.ts`
+- `src/schemas/config.ts`
+- `tests/unit/init.test.ts`
+- `tests/unit/adopt.test.ts`
+- `tests/unit/start.test.ts`
+- `README.md`
+- `docs/execution-log.md`
+
+Implementation notes:
+
+- `src/templates` now owns generated handoff, AGENTS, adoption report, start labels, and Harness / Loop rules.
+- `language` is validated in config and defaults to `zh-CN`, so older `.flow/config.yaml` files still parse.
+- `initProject` and `adoptProject` accept `language`, resolve it through the shared template registry, and write it into `.flow/config.yaml`.
+- `start` reads `config.language`, renders labels and rules from the selected template set, and remains read-only.
+- `getFlowStrategyRules` now returns language-aware strategy rules while still supporting only `harness` and `loop`.
+
+TDD evidence:
+
+- Plan 10 tests were added before implementation for default Chinese `init`, English `init`, default Chinese `adopt`, English `adopt`, Chinese `start`, and English `start`.
+- First Plan 10 test run failed because language support and `src/templates` did not exist yet.
+- After implementation, the full unit test suite passed.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 61 tests.
+- `pnpm.cmd build`: passed.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-plan10-zh-final`: default `init` wrote `language: zh-CN`, generated Chinese AGENTS / handoff templates, and `start` printed Chinese work packet sections with Chinese Harness rules.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-plan10-en`: `init --language en-US` wrote `language: en-US`, generated English AGENTS / handoff templates, and `start` printed the English work packet with English Harness rules.
+
+Next:
+
+- Continue with Plan 11: use dcflow against dcflow itself for a realistic self-test, then decide whether the next milestone is interactive prompts, external template packs, or a minimum npm release.
+
+## 2026-07-02 - Plan 11 Workspace Docs Scope
+
+Scope:
+
+- Add a generated `.flow/docs/` area for AI-produced project documents.
+- Add a generated `.flow/attachments/` area for product manager inputs, prototypes, requirement documents, screenshots, and other reference material.
+- Include README files in both directories so the directories are created and their purpose is explicit.
+- Update generated `AGENTS.md` and `CLAUDE.md` templates so agents know where to find external requirement material and where to place generated requirement, analysis, and plan documents.
+- Apply the same behavior to both `init` and `adopt`.
+- Support both `zh-CN` and `en-US` templates.
+
+Implementation notes:
+
+- `src/templates` now includes `workspaceDocs.docsReadme` and `workspaceDocs.attachmentsReadme`.
+- `initProject` writes `.flow/docs/README.md` and `.flow/attachments/README.md`.
+- `adoptProject` writes the same files when they do not already exist.
+- Chinese and English AGENTS / CLAUDE templates now include document location guidance.
+
+TDD evidence:
+
+- Added tests first for `init` and `adopt` requiring both new README files and path guidance in generated AI entry files.
+- Initial test run failed because `.flow/docs/README.md`, `.flow/attachments/README.md`, and AGENTS/CLAUDE path guidance did not exist yet.
+- After implementation, focused `init` and `adopt` tests passed.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 63 tests.
+- `pnpm.cmd build`: passed.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-docs-folders`: `init` created `.flow/docs/README.md`, `.flow/attachments/README.md`, and AGENTS/CLAUDE path guidance.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-docs-adopt`: `adopt` preserved an existing `AGENTS.md`, created `CLAUDE.md`, and created the new docs / attachments README files.
+
+Next:
+
+- Continue with self-use validation and decide whether interactive language selection or npm release should be next.
+
+## 2026-07-02 - Plan 12 Work Packet Scope
+
+Scope:
+
+- Generate `.flow/work-packet.md` during `init` and `adopt`.
+- Treat `.flow/work-packet.md` as a maintainable current-task context file, not as a cache of `flow start` output.
+- Update generated `AGENTS.md` and `CLAUDE.md` so agents read `.flow/work-packet.md` at session start.
+- Tell agents to update `.flow/work-packet.md` at session end when task progress, plan, scope, or verification approach changes.
+- Keep `.flow/state/handoff.md` as the session handoff file for completed work, risks, and next step.
+- Support both `zh-CN` and `en-US` templates.
+
+Implementation notes:
+
+- `LanguageTemplates` now includes a `workPacket` template.
+- `initProject` writes `.flow/work-packet.md`.
+- `adoptProject` writes `.flow/work-packet.md` when it does not already exist.
+- Chinese and English AGENTS / CLAUDE templates now include session start and session end maintenance rules for work-packet, handoff, docs, and attachments.
+
+TDD evidence:
+
+- Added tests first requiring `.flow/work-packet.md` in both `init` and `adopt`.
+- Added tests requiring AGENTS / CLAUDE to reference `.flow/work-packet.md` and its update rule.
+- Initial focused test run failed because the work-packet file and AGENTS / CLAUDE guidance did not exist yet.
+- After implementation, focused `init` and `adopt` tests passed.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 63 tests.
+- `pnpm.cmd build`: passed.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-work-packet`: `init` created `.flow/work-packet.md`, and AGENTS / CLAUDE instruct agents to read and update it.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-work-packet-adopt`: `adopt` created `.flow/work-packet.md`, preserved an existing `AGENTS.md`, and generated `CLAUDE.md` with work-packet maintenance guidance.
+
+Next:
+
+- Use a fresh real project to test a full agent-maintained login/register task loop.
+
+## 2026-07-02 - Plan 12 Task State Maintenance Guidance
+
+Scope:
+
+- Align generated AGENTS / CLAUDE session-end rules with the task-state model used by `.flow/state/tasks.yaml`.
+- Make agents maintain current task `status`, `verification`, `evidence`, and `notes` at the end of each session.
+- Require verification evidence before marking a task as `passing`.
+- Require unresolved blockers to stay visible through `blocked`, `notes`, or `evidence`.
+
+Implementation notes:
+
+- Chinese and English init templates now include `.flow/state/tasks.yaml` maintenance rules in Session End.
+- Chinese and English adopt templates now include the same rules.
+- README now documents the intended meaning of `verification`, `evidence`, and `notes`.
+
+TDD evidence:
+
+- Added failing tests first for Chinese and English `init` AGENTS / CLAUDE output.
+- Added failing tests first for Chinese and English `adopt` AGENTS / CLAUDE output.
+- Initial focused tests failed because generated guidance did not mention updating `.flow/state/tasks.yaml`.
+- After template updates, focused `init` and `adopt` tests passed.
+
+Verification:
+
+- Focused `pnpm.cmd test tests/unit/init.test.ts`: passed.
+- Focused `pnpm.cmd test tests/unit/adopt.test.ts`: passed.
+- `pnpm.cmd test`: passed, 13 test files, 63 tests.
+- `pnpm.cmd build`: passed.
+- `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-tasks-guidance`: Chinese `init` generated AGENTS / CLAUDE with `.flow/state/tasks.yaml`, `evidence`, `passing`, and `blocked` guidance.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-tasks-guidance-en`: English `init --language en-US` generated the same task-state guidance.
+
+## 2026-07-02 - Plan 12 Work Rules Expansion
+
+Scope:
+
+- Add a stronger `Work Rules` section to generated AGENTS / CLAUDE files.
+- Preserve the shanyu-bg style rules while making them generic for dcflow projects.
+- Cover single-active-task discipline, completion discipline, blocker bypass limits, verification integrity, persistent source of truth, narrow task scope, dirty workspace handling, Chinese comments, no self-commit, and user approval before coding after a written proposal.
+
+Implementation notes:
+
+- Chinese init and adopt templates now include `Work Rules`.
+- English init and adopt templates now include equivalent `Work Rules`.
+- README now documents the generated Work Rules so users know what agent behavior dcflow is trying to enforce.
+
+TDD evidence:
+
+- Added failing assertions first for Chinese init AGENTS / CLAUDE output.
+- Added failing assertions first for English init AGENTS output.
+- Added failing assertions first for Chinese adopt CLAUDE output and English adopt AGENTS output.
+- Initial focused tests failed because generated templates did not contain `## Work Rules`.
+- After template updates, focused `init` and `adopt` tests passed.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 63 tests.
+- `pnpm.cmd build`: passed.
+- `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-work-rules`: Chinese `init` generated AGENTS / CLAUDE with Work Rules.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-work-rules-en`: English `init --language en-US` generated AGENTS / CLAUDE with equivalent Work Rules.
+
+## 2026-07-03 - Adopt Conflict Template Copies
+
+Scope:
+
+- Improve `adopt` for existing projects when generated AI entry templates conflict with existing `AGENTS.md` or `CLAUDE.md`.
+- Keep original files unchanged.
+- Generate timestamped template copies under `.flow/conflicts/`.
+- Print conflict paths in CLI output and record them in `.flow/adoption-report.md`.
+- Keep state files such as `.flow/state/tasks.yaml` and `.flow/state/handoff.md` as skip-only files.
+
+Implementation notes:
+
+- `AdoptResult` now includes `conflicts`.
+- Existing `AGENTS.md` / `CLAUDE.md` create template copies named like `.flow/conflicts/20260703-102030-AGENTS.dcflow-template.md`.
+- Adoption report templates now include a conflict template copy section in both Chinese and English.
+- README documents conflict copy behavior and manual merge expectations.
+
+TDD evidence:
+
+- Added a failing test for existing `AGENTS.md` with user-owned `Work Rules`.
+- Added a failing summary-output assertion for `Conflict: <file> -> template copy <path>`.
+- Initial focused `adopt` test failed because `conflicts` and conflict output did not exist.
+- After implementation, focused `adopt` tests passed.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 64 tests.
+- `pnpm.cmd build`: passed.
+- `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-adopt-conflict`: existing `AGENTS.md` stayed unchanged, `.flow/conflicts/20260703-022110-AGENTS.dcflow-template.md` was created, and `.flow/adoption-report.md` recorded the conflict copy path.
+
+## 2026-07-03 - Plan 13 Safe Init Conflicts
+
+Scope:
+
+- Make `init` safe when a project already has `AGENTS.md` or `CLAUDE.md`.
+- Avoid overwriting user-owned AI entry files.
+- Generate timestamped template copies under `.flow/conflicts/` for AI entry conflicts.
+- Pre-scan target files before writing so `.flow` state conflicts do not leave a half-initialized project.
+
+Implementation notes:
+
+- Added `src/core/conflictTemplates.ts` for shared conflict timestamp and path helpers.
+- `initProject` now returns `conflicts` like `adoptProject`.
+- Existing `AGENTS.md` / `CLAUDE.md` are skipped and receive a template copy.
+- Existing non-AI target files, including `.flow/state/tasks.yaml`, stop `init` before any new files are written.
+- CLI init output now prints skipped files and conflict template copy paths.
+
+TDD evidence:
+
+- Added failing tests first for existing `AGENTS.md` during init.
+- Added failing tests first for existing `.flow/state/tasks.yaml` to verify no partial initialization occurs.
+- Initial focused `init` tests failed because `init` still threw on `AGENTS.md` and the state conflict setup exposed the old behavior.
+- After implementation, focused `init` and `adopt` tests passed.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 65 tests.
+- `pnpm.cmd build`: passed.
+- `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-init-conflict`: existing `AGENTS.md` stayed unchanged, `.flow/conflicts/20260703-035945-AGENTS.dcflow-template.md` was created, and `init` completed.
+- Manual CLI validation in `D:\code\dc_code\dcflow-demo-init-state-conflict`: existing `.flow/state/tasks.yaml` made `init` exit with code 1, and no `.flow/config.yaml` or `.flow/conflicts` directory was created.

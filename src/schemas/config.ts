@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { languageSchema } from '../templates/index.js';
 
 // dcflow 第一版只内置这几个 flow。后续插件化时可以放宽为字符串。
 export const flowNameSchema = z.enum(['harness', 'loop']);
@@ -15,6 +16,7 @@ export const configSchema = z.object({
   flow: z.object({
     current: flowNameSchema,
   }),
+  language: languageSchema.default('zh-CN'),
   adapters: z.object({
     enabled: z.array(adapterNameSchema).default([]),
   }),

@@ -1,0 +1,8 @@
+project:
+  name: dcflow
+flow:
+  current: harness
+adapters:
+  enabled:
+    - claude
+    - codex

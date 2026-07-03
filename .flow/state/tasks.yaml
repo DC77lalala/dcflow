@@ -1,0 +1,9 @@
+tasks:
+  - id: task-20260702-100408
+    title: "Plan 10: dcflow 自举接入自己并完成端到端验收"
+    status: passing
+    priority: 0
+    verification: []
+    evidence:
+      - "2026-07-02T02:07:06.140Z PASS npm test (required: true, exitCode: 0)"
+      - "2026-07-02T02:07:06.140Z PASS npm build (required: true, exitCode: 0)"

@@ -1,21 +1,32 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { stringify } from 'yaml';
+import {
+  buildConflictTemplatePath,
+  formatConflictTimestamp,
+  isTemplateConflictCandidate,
+  type TemplateConflict,
+} from '../core/conflictTemplates.js';
 import { detectProject, type ProjectDetection } from '../core/projectDetector.js';
 import { renderTemplate } from '../core/templateRenderer.js';
 import { type FlowCheck } from '../schemas/checks.js';
+import { getTemplates, resolveLanguage, type TemplateLanguage } from '../templates/index.js';
 
 export type AdoptOptions = {
   root?: string;
   projectName?: string;
+  language?: string;
+  now?: Date;
 };
 
 export type AdoptResult = {
   root: string;
   projectName: string;
+  language: TemplateLanguage;
   detection: ProjectDetection;
   created: string[];
   skipped: string[];
+  conflicts: TemplateConflict[];
   foundAiFiles: string[];
   reportPath: string;
 };
@@ -37,22 +48,40 @@ export async function adoptProject(options: AdoptOptions = {}): Promise<AdoptRes
   const root = resolve(options.root ?? process.cwd());
   const detection = await detectProject(root);
   const projectName = options.projectName ?? detection.packageName ?? basename(root);
+  const language = resolveLanguage(options.language);
   const foundAiFiles = await findExistingAiFiles(root);
   const checks = await buildChecks(root, detection);
   const files = buildAdoptionFiles({
     projectName,
+    language,
     detection,
     foundAiFiles,
     checks,
   });
   const created: string[] = [];
   const skipped: string[] = [];
+  const conflicts: TemplateConflict[] = [];
+  const timestamp = formatConflictTimestamp(options.now ?? new Date());
 
   for (const file of files) {
     const target = join(root, file.relativePath);
 
     if (await pathExists(target)) {
       skipped.push(file.relativePath);
+
+      if (isTemplateConflictCandidate(file.relativePath)) {
+        const templateCopyPath = buildConflictTemplatePath(file.relativePath, timestamp);
+        const templateTarget = join(root, templateCopyPath);
+        await mkdir(join(templateTarget, '..'), { recursive: true });
+        await writeFile(templateTarget, file.content, 'utf8');
+        created.push(templateCopyPath);
+        conflicts.push({
+          originalPath: file.relativePath,
+          templateCopyPath,
+          reason: 'existing-ai-entry',
+        });
+      }
+
       continue;
     }
 
@@ -61,14 +90,34 @@ export async function adoptProject(options: AdoptOptions = {}): Promise<AdoptRes
     created.push(file.relativePath);
   }
 
+  const reportPath = '.flow/adoption-report.md';
+  const reportTarget = join(root, reportPath);
+  const reportContent = getTemplates(language).adoptionReport({
+    projectName,
+    detection,
+    foundAiFiles,
+    conflicts,
+    checks,
+  });
+
+  if (await pathExists(reportTarget)) {
+    skipped.push(reportPath);
+  } else {
+    await mkdir(join(reportTarget, '..'), { recursive: true });
+    await writeFile(reportTarget, reportContent, 'utf8');
+    created.push(reportPath);
+  }
+
   return {
     root,
     projectName,
+    language,
     detection,
     created,
     skipped,
+    conflicts,
     foundAiFiles,
-    reportPath: '.flow/adoption-report.md',
+    reportPath,
   };
 }
 
@@ -92,6 +141,10 @@ export function formatAdoptResult(result: AdoptResult): string[] {
     lines.push(`Skipped: ${file}`);
   }
 
+  for (const conflict of result.conflicts) {
+    lines.push(`Conflict: ${conflict.originalPath} -> template copy ${conflict.templateCopyPath}`);
+  }
+
   if (result.foundAiFiles.length > 0) {
     lines.push(`Existing AI files: ${result.foundAiFiles.join(', ')}`);
   }
@@ -101,10 +154,12 @@ export function formatAdoptResult(result: AdoptResult): string[] {
 
 function buildAdoptionFiles(options: {
   projectName: string;
+  language: TemplateLanguage;
   detection: ProjectDetection;
   foundAiFiles: string[];
   checks: FlowCheck[];
 }): FileToWrite[] {
+  const templates = getTemplates(options.language);
   const templateVars = {
     projectName: options.projectName,
     flowName: 'harness',
@@ -116,6 +171,7 @@ function buildAdoptionFiles(options: {
       content: stringify({
         project: { name: options.projectName },
         flow: { current: 'harness' },
+        language: options.language,
         adapters: { enabled: ['claude', 'codex'] },
       }),
     },
@@ -125,23 +181,31 @@ function buildAdoptionFiles(options: {
     },
     {
       relativePath: '.flow/state/handoff.md',
-      content: renderTemplate(HANDOFF_TEMPLATE, templateVars),
+      content: renderTemplate(templates.handoff.adopt, templateVars),
+    },
+    {
+      relativePath: '.flow/work-packet.md',
+      content: renderTemplate(templates.workPacket, templateVars),
     },
     {
       relativePath: '.flow/checks/default.yaml',
       content: stringify({ checks: options.checks }),
     },
     {
-      relativePath: '.flow/adoption-report.md',
-      content: buildAdoptionReport(options),
+      relativePath: '.flow/docs/README.md',
+      content: templates.workspaceDocs.docsReadme,
+    },
+    {
+      relativePath: '.flow/attachments/README.md',
+      content: templates.workspaceDocs.attachmentsReadme,
     },
     {
       relativePath: 'AGENTS.md',
-      content: renderTemplate(AGENTS_TEMPLATE, templateVars),
+      content: renderTemplate(templates.agents.adopt, templateVars),
     },
     {
       relativePath: 'CLAUDE.md',
-      content: renderTemplate(AGENTS_TEMPLATE, templateVars),
+      content: renderTemplate(templates.agents.adopt, templateVars),
     },
   ];
 }
@@ -235,88 +299,3 @@ async function pathExists(path: string): Promise<boolean> {
     return false;
   }
 }
-
-function buildAdoptionReport(options: {
-  projectName: string;
-  detection: ProjectDetection;
-  foundAiFiles: string[];
-  checks: FlowCheck[];
-}): string {
-  const lines = [
-    '# dcflow Adoption Report',
-    '',
-    '## Project',
-    '',
-    `- project: ${options.projectName}`,
-    `- detected type: ${options.detection.type}`,
-    `- signals: ${formatListInline(options.detection.signals)}`,
-    '',
-    '## Existing AI Files',
-    '',
-    ...formatListBlock(options.foundAiFiles),
-    '',
-    '## Generated Checks',
-    '',
-    ...options.checks.map((check) => `- ${check.command} (${check.name}, required: ${check.required})`),
-    '',
-    '## Notes',
-    '',
-    '- Existing AI entry files were not overwritten.',
-    '- Review `.flow/checks/default.yaml` before relying on `dcflow finish`.',
-    '- Add a task with `dcflow task add "task title"` and activate it with `dcflow task active <task-id>`.',
-    '',
-  ];
-
-  return lines.join('\n');
-}
-
-function formatListInline(values: string[]): string {
-  if (values.length === 0) {
-    return 'none';
-  }
-
-  return values.join(', ');
-}
-
-function formatListBlock(values: string[]): string[] {
-  if (values.length === 0) {
-    return ['- none'];
-  }
-
-  return values.map((value) => `- ${value}`);
-}
-
-const HANDOFF_TEMPLATE = `# Flow Handoff
-
-Project: {{projectName}}
-Current flow: {{flowName}}
-
-## Current State
-
-- Existing project adopted into dcflow.
-- No active task has been created yet.
-- Review .flow/adoption-report.md before the first AI session.
-
-## Next Step
-
-- Run \`dcflow task add "task title"\` to create the first tracked task.
-- Run \`dcflow task active <task-id>\` to select the current task.
-- Run \`dcflow start\` to generate the AI work packet.
-`;
-
-const AGENTS_TEMPLATE = `# {{projectName}} AI Flow Entry
-
-This existing project is adopted by dcflow.
-
-## Session Start
-
-1. Run \`flow status\` to inspect current flow state.
-2. Run \`flow start\` to read the active task and project handoff.
-3. Work only on the active task unless the user changes scope.
-
-## Session End
-
-1. Run \`flow check\`.
-2. Run \`flow finish\`.
-3. Leave blockers and verification evidence in dcflow state.
-`;

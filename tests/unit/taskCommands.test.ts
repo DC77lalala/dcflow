@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -65,6 +65,29 @@ describe('task commands', () => {
       });
 
       expect(lines).toEqual(['active task-20260629-153000: first task']);
+    });
+  });
+
+  it('refreshes handoff after activating a task', async () => {
+    await withInitializedProject(async (root) => {
+      await addTaskCommand({
+        root,
+        title: '实现登录接口',
+        now: new Date('2026-06-29T15:30:00.000+08:00'),
+      });
+
+      await activateTaskCommand({
+        root,
+        taskId: 'task-20260629-153000',
+      });
+
+      const handoff = await readFile(join(root, '.flow/state/handoff.md'), 'utf8');
+
+      expect(handoff).toContain('## 当前任务');
+      expect(handoff).toContain('- id: task-20260629-153000');
+      expect(handoff).toContain('- 标题: 实现登录接口');
+      expect(handoff).toContain('- 状态: active');
+      expect(handoff).not.toContain('还没有创建 active 任务');
     });
   });
 });

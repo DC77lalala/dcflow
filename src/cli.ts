@@ -32,16 +32,24 @@ export function createProgram(): Command {
     .option('-y, --yes', 'Use default answers and skip interactive prompts')
     .option('-f, --force', 'Overwrite existing generated files')
     .option('--project-name <name>', 'Project name written to .flow/config.yaml')
-    .action(async (options: { yes?: boolean; force?: boolean; projectName?: string }) => {
+    .option('--language <language>', 'Template language: zh-CN or en-US')
+    .action(async (options: { yes?: boolean; force?: boolean; projectName?: string; language?: string }) => {
       const result = await initProject({
         yes: options.yes ?? false,
         force: options.force ?? false,
         projectName: options.projectName,
+        language: options.language,
       });
 
       console.log(`dcflow initialized ${result.projectName} at ${result.root}`);
       for (const file of result.created) {
         console.log(`created ${file}`);
+      }
+      for (const file of result.skipped) {
+        console.log(`skipped ${file}`);
+      }
+      for (const conflict of result.conflicts) {
+        console.log(`conflict ${conflict.originalPath} -> template copy ${conflict.templateCopyPath}`);
       }
     });
 
@@ -50,8 +58,9 @@ export function createProgram(): Command {
     .command('adopt')
     .description('Adopt dcflow into an existing project')
     .option('--project-name <name>', 'Project name written to .flow/config.yaml')
-    .action(async (options: { projectName?: string }) => {
-      const lines = await adoptCommand({ projectName: options.projectName });
+    .option('--language <language>', 'Template language: zh-CN or en-US')
+    .action(async (options: { projectName?: string; language?: string }) => {
+      const lines = await adoptCommand({ projectName: options.projectName, language: options.language });
       printLines(lines);
     });
 

@@ -7,6 +7,7 @@ import { readTasksFile } from '../core/taskStore.js';
 import { checksFileSchema, type FlowCheck } from '../schemas/checks.js';
 import { configSchema } from '../schemas/config.js';
 import { type FlowTask } from '../schemas/tasks.js';
+import { getTemplates, type StartLabels, type TemplateLanguage } from '../templates/index.js';
 
 export type StartCommandOptions = {
   root?: string;
@@ -15,6 +16,8 @@ export type StartCommandOptions = {
 export type StartWorkPacket = {
   projectName: string;
   flowName: string;
+  language: TemplateLanguage;
+  labels: StartLabels;
   activeTask: FlowTask;
   flowRules: FlowStrategyRules;
   checks: FlowCheck[];
@@ -47,8 +50,10 @@ export async function getStartWorkPacket(
   return {
     projectName: config.project.name,
     flowName: config.flow.current,
+    language: config.language,
+    labels: getTemplates(config.language).start,
     activeTask,
-    flowRules: getFlowStrategyRules(config.flow.current),
+    flowRules: getFlowStrategyRules(config.flow.current, config.language),
     checks: checksFile.checks,
     handoff,
     validationOk: validation.ok,
@@ -60,30 +65,30 @@ export async function startCommand(options: StartCommandOptions = {}): Promise<s
   const packet = await getStartWorkPacket(options);
 
   return [
-    '# dcflow Work Packet',
+    packet.labels.title,
     '',
-    `Project: ${packet.projectName}`,
+    `${packet.labels.project}: ${packet.projectName}`,
     `Flow: ${packet.flowName}`,
-    `Validation: ${packet.validationOk ? 'ok' : 'failed'}`,
-    ...formatValidationErrors(packet.validationErrors),
+    `${packet.labels.validation}: ${packet.validationOk ? 'ok' : 'failed'}`,
+    ...formatValidationErrors(packet.validationErrors, packet.labels),
     '',
-    '## Active Task',
+    packet.labels.activeTask,
     `- id: ${packet.activeTask.id}`,
-    `- title: ${packet.activeTask.title}`,
-    `- status: ${packet.activeTask.status}`,
-    `- priority: ${packet.activeTask.priority}`,
-    ...formatOptionalTaskSection('verification', packet.activeTask.verification),
-    ...formatOptionalTaskSection('evidence', packet.activeTask.evidence),
-    ...formatTaskNotes(packet.activeTask.notes),
+    `- ${packet.labels.taskTitle}: ${packet.activeTask.title}`,
+    `- ${packet.labels.taskStatus}: ${packet.activeTask.status}`,
+    `- ${packet.labels.taskPriority}: ${packet.activeTask.priority}`,
+    ...formatOptionalTaskSection(packet.labels.verification, packet.activeTask.verification, packet.labels),
+    ...formatOptionalTaskSection(packet.labels.evidence, packet.activeTask.evidence, packet.labels),
+    ...formatTaskNotes(packet.activeTask.notes, packet.labels),
     '',
     `## Flow Rules: ${packet.flowRules.title}`,
     ...formatFlowRules(packet.flowRules.rules),
     '',
-    '## Checks',
-    ...formatChecks(packet.checks),
+    packet.labels.checks,
+    ...formatChecks(packet.checks, packet.labels),
     '',
-    '## Handoff',
-    ...formatHandoff(packet.handoff, packet.flowName),
+    packet.labels.handoff,
+    ...formatHandoff(packet.handoff, packet.flowName, packet.labels),
   ];
 }
 
@@ -101,33 +106,33 @@ async function readHandoff(root: string): Promise<string> {
   return readFile(join(root, '.flow', 'state', 'handoff.md'), 'utf8');
 }
 
-function formatValidationErrors(errors: string[]): string[] {
+function formatValidationErrors(errors: string[], labels: StartLabels): string[] {
   if (errors.length === 0) {
     return [];
   }
 
-  return ['Validation errors:', ...errors.map((error) => `- ${error}`)];
+  return [labels.validationErrors, ...errors.map((error) => `- ${error}`)];
 }
 
-function formatOptionalTaskSection(label: string, values: string[]): string[] {
+function formatOptionalTaskSection(label: string, values: string[], labels: StartLabels): string[] {
   if (values.length === 0) {
-    return [`- ${label}: none`];
+    return [`- ${label}: ${labels.none}`];
   }
 
   return [`- ${label}:`, ...values.map((value) => `  - ${value}`)];
 }
 
-function formatTaskNotes(notes: string | undefined): string[] {
+function formatTaskNotes(notes: string | undefined, labels: StartLabels): string[] {
   if (!notes) {
-    return ['- notes: none'];
+    return [`- ${labels.notes}: ${labels.none}`];
   }
 
-  return ['- notes:', ...formatBlock(notes)];
+  return [`- ${labels.notes}:`, ...formatBlock(notes, labels)];
 }
 
-function formatChecks(checks: FlowCheck[]): string[] {
+function formatChecks(checks: FlowCheck[], labels: StartLabels): string[] {
   if (checks.length === 0) {
-    return ['- none'];
+    return [`- ${labels.none}`];
   }
 
   return checks.map(
@@ -140,13 +145,29 @@ function formatFlowRules(rules: string[]): string[] {
   return rules.map((rule) => `- ${rule}`);
 }
 
-function formatBlock(value: string): string[] {
+function formatBlock(value: string, labels: StartLabels): string[] {
   const lines = value.trim().split(/\r?\n/);
-  return lines.length === 0 ? ['(empty)'] : lines;
+  return lines.length === 0 ? [`(${labels.emptyBlock})`] : lines;
 }
 
-function formatHandoff(value: string, flowName: StartWorkPacket['flowName']): string[] {
-  return formatBlock(value).map((line) =>
-    line.startsWith('Current flow:') ? `Current flow: ${flowName}` : line,
+function formatHandoff(
+  value: string,
+  flowName: StartWorkPacket['flowName'],
+  labels: StartLabels,
+): string[] {
+  return formatBlock(value, labels).map((line) =>
+    normalizeHandoffFlowLine(line, flowName),
   );
+}
+
+function normalizeHandoffFlowLine(line: string, flowName: StartWorkPacket['flowName']): string {
+  if (line.startsWith('Current flow:')) {
+    return `Current flow: ${flowName}`;
+  }
+
+  if (line.startsWith('当前 flow:')) {
+    return `当前 flow: ${flowName}`;
+  }
+
+  return line;
 }
