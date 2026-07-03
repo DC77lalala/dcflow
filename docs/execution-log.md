@@ -1055,6 +1055,28 @@ Verification:
 - `pnpm.cmd build`: passed.
 - `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
 - `npm.cmd pack --dry-run`: passed; tarball contains only `LICENSE`, `README.md`, `dist/index.d.ts`, `dist/index.js`, `dist/index.js.map`, and `package.json`.
+
+## 2026-07-03 - README npm Usage Update
+
+Scope:
+
+- Update README after npm publication.
+- Present two usage paths: clone and run locally, or install from npm.
+- Keep the agent handoff section.
+- Clarify that `harness` is the main template and `loop` is currently an experimental built-in strategy that only changes `start` flow-rule output.
+
+Verification plan:
+
+- Run full unit tests.
+- Run build.
+- Run `git diff --check`.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 65 tests.
+- `pnpm.cmd build`: passed.
+- `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
+- `npm.cmd pack --dry-run`: passed; tarball contains only `LICENSE`, `README.md`, `dist/index.d.ts`, `dist/index.js`, `dist/index.js.map`, and `package.json`.
 - Manual CLI validation in `D:\code\dc_code\dcflow-demo-init-conflict`: existing `AGENTS.md` stayed unchanged, `.flow/conflicts/20260703-035945-AGENTS.dcflow-template.md` was created, and `init` completed.
 - Manual CLI validation in `D:\code\dc_code\dcflow-demo-init-state-conflict`: existing `.flow/state/tasks.yaml` made `init` exit with code 1, and no `.flow/config.yaml` or `.flow/conflicts` directory was created.
 
