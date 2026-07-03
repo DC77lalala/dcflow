@@ -1032,5 +1032,49 @@ Verification:
 - `pnpm.cmd test`: passed, 13 test files, 65 tests.
 - `pnpm.cmd build`: passed.
 - `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
+
+## 2026-07-03 - npm Publish Package Cleanup
+
+Scope:
+
+- Prepare the package for npm publication.
+- Prevent development-only files from being included in the npm tarball.
+- Add package repository metadata.
+- Add an MIT LICENSE file matching the package license field.
+
+Implementation notes:
+
+- Added `files` whitelist to `package.json`: `dist`, `README.md`, and `LICENSE`.
+- Added `repository`, `bugs`, and `homepage` fields for `https://github.com/DC77lalala/dcflow`.
+- Added standard MIT `LICENSE`.
+
+Verification:
+
+- `npm.cmd view dcflow name version`: returned 404, indicating the `dcflow` package name is not currently present in the npm registry.
+- `pnpm.cmd test`: passed, 13 test files, 65 tests.
+- `pnpm.cmd build`: passed.
+- `git diff --check`: passed, with only Windows LF-to-CRLF warnings.
+- `npm.cmd pack --dry-run`: passed; tarball contains only `LICENSE`, `README.md`, `dist/index.d.ts`, `dist/index.js`, `dist/index.js.map`, and `package.json`.
 - Manual CLI validation in `D:\code\dc_code\dcflow-demo-init-conflict`: existing `AGENTS.md` stayed unchanged, `.flow/conflicts/20260703-035945-AGENTS.dcflow-template.md` was created, and `init` completed.
 - Manual CLI validation in `D:\code\dc_code\dcflow-demo-init-state-conflict`: existing `.flow/state/tasks.yaml` made `init` exit with code 1, and no `.flow/config.yaml` or `.flow/conflicts` directory was created.
+
+## 2026-07-03 - User-Facing README Rewrite
+
+Scope:
+
+- Rewrite README for users of dcflow instead of agents maintaining the repository.
+- Organize documentation around introduction, quick start, result preview, common commands, generated Work Rules, and development.
+- Keep local `node D:\code\dc_code\dcflow\dist\index.js` commands while noting future `dcflow <command>` usage after publishing.
+- Remove internal roadmap-style emphasis from the README and keep implementation progress in this execution log.
+
+Verification plan:
+
+- Run full unit tests.
+- Run build.
+- Run `git diff --check`.
+
+Verification:
+
+- `pnpm.cmd test`: passed, 13 test files, 65 tests.
+- `pnpm.cmd build`: passed.
+- `git diff --check`: passed, with only Windows LF-to-CRLF warnings.

@@ -22,6 +22,19 @@
   ],
   "author": "",
   "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DC77lalala/dcflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DC77lalala/dcflow/issues"
+  },
+  "homepage": "https://github.com/DC77lalala/dcflow#readme",
   "packageManager": "pnpm@11.9.0",
   "engines": {
     "node": ">=18.0.0"
